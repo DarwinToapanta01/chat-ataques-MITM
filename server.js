@@ -1,6 +1,5 @@
-// server.js (versión final y corregida)
 import { WebSocketServer } from "ws";
-import os from 'os'; // <-- Importamos el módulo 'os'
+import os from 'os';
 
 const PORT = 8090;
 const ROOM_KEY = "12345";
@@ -10,11 +9,10 @@ roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123");
 const clients = new Map();
 const MITM_IDENTITY = "SERVER_MITM";
 
-// --- Función para obtener la IP local (CORREGIDA) ---
+//Función para obtener la IP local
 function getLocalIPAddress() {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
-        // CAMBIO: 'interface' -> 'iface' para evitar la palabra reservada
         for (const iface of interfaces[name]) {
             if (iface.family === 'IPv4' && !iface.internal) {
                 return iface.address;
@@ -75,7 +73,6 @@ wss.on("connection", (ws) => {
     });
 });
 
-// --- Línea modificada ---
 const localIP = getLocalIPAddress();
 console.log(`Servidor "MITM" escuchando en ws://${localIP}:${PORT}`);
 console.log(`Asegúrate de que el firewall permita conexiones en el puerto ${PORT}`);
