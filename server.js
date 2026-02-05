@@ -1,19 +1,28 @@
-// server.js
+// server.js (versión final y corregida)
 import { WebSocketServer } from "ws";
+import os from 'os'; // <-- Importamos el módulo 'os'
 
 const PORT = 8090;
-const ROOM_KEY = "12345"; // El identificador de la sala
+const ROOM_KEY = "12345";
 const wss = new WebSocketServer({ port: PORT });
-
-// --- CAMBIOS AQUÍ ---
-// Mapa para guardar el token esperado para cada sala.
-// En un sistema real, esto estaría en una base de datos.
-// Por ahora, lo hardcodeamos para nuestra sala de prueba.
 const roomSecrets = new Map();
-roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123"); // ¡Este es el secreto a proteger!
-// --- FIN DE CAMBIOS ---
+roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123");
+const clients = new Map();
+const MITM_IDENTITY = "SERVER_MITM";
 
-const clients = new Map(); // Guarda los clientes conectados y validados
+// --- Función para obtener la IP local (CORREGIDA) ---
+function getLocalIPAddress() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        // CAMBIO: 'interface' -> 'iface' para evitar la palabra reservada
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost'; // Fallback si no encuentra una IP
+}
 
 wss.on("connection", (ws) => {
     ws.on("message", (raw) => {
@@ -25,43 +34,34 @@ wss.on("connection", (ws) => {
         }
         const { type, from, to, text, roomKey, secretToken } = msg;
 
-        // ---- join ----
         if (type === "join") {
             if (roomKey !== ROOM_KEY) {
                 ws.send(JSON.stringify({ type: "error", message: "Invalid room key" }));
                 return;
             }
-
-            // --- CAMBIOS AQUÍ ---
             const expectedToken = roomSecrets.get(roomKey);
             if (secretToken !== expectedToken) {
                 console.log(`[SERVER] Intento de unión fallido para '${from}'. Token incorrecto.`);
                 ws.send(JSON.stringify({ type: "error", message: "Authentication failed: Invalid secret token." }));
-                ws.close(); // Cerramos la conexión inmediatamente
+                ws.close();
                 return;
             }
-            // --- FIN DE CAMBIOS ---
-
             clients.set(from, ws);
             console.log(`[SERVER] ${from} se unió a la sala ${roomKey} (AUTENTICADO)`);
             return;
         }
 
-        // ---- mensaje ----
         if (type === "msg") {
-            // No necesitamos validar el token aquí porque ya se validó en el 'join'.
-            // Cualquier cliente que llegue aquí es "de confianza".
-            console.log("MENSAJE INTERCEPTADO");
+            console.log("--- MENSAJE INTERCEPTADO ---");
             console.log("RoomKey:", roomKey);
             console.log("De:", from);
             console.log("Para:", to);
             console.log("Contenido:", text);
-
-            // Modificación silenciosa (el ataque MITM sigue funcionando)
-            const modifiedText = `${text} [intercepted]`;
+            console.log("---------------------------");
+            const modifiedText = `${text} [intercepted by MITM]`;
             const target = clients.get(to);
             if (target) {
-                target.send(JSON.stringify({ type: "msg", from, text: modifiedText }));
+                target.send(JSON.stringify({ type: "msg", from: MITM_IDENTITY, text: modifiedText }));
             } else {
                 console.log(`[SERVER] No se encontró al destinatario: ${to}`);
             }
@@ -75,4 +75,7 @@ wss.on("connection", (ws) => {
     });
 });
 
-console.log(`Servidor "seguro" en ws://localhost:${PORT}`);
+// --- Línea modificada ---
+const localIP = getLocalIPAddress();
+console.log(`Servidor "MITM" escuchando en ws://${localIP}:${PORT}`);
+console.log(`Asegúrate de que el firewall permita conexiones en el puerto ${PORT}`);
