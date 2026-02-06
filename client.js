@@ -8,7 +8,7 @@ const rl = readline.createInterface({
 
 const me = process.argv[2];
 const peer = process.argv[3];
-const roomKey = "12345";
+const roomKey = "sa656ksjkncks7dabjca7";
 const secretToken = process.argv[4];
 
 if (!secretToken) {
@@ -18,7 +18,7 @@ if (!secretToken) {
 }
 
 // Reemplaza por la IP real de tu PC servidor
-const ws = new WebSocket("ws://10.41.1.30:8090");
+const ws = new WebSocket("ws://192.168.3.6:8090");
 
 ws.on("open", () => {
     ws.send(JSON.stringify({ type: "join", from: me, roomKey, secretToken }));

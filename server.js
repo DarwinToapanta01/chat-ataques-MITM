@@ -2,7 +2,7 @@ import { WebSocketServer } from "ws";
 import os from 'os';
 
 const PORT = 8090;
-const ROOM_KEY = "12345";
+const ROOM_KEY = "sa656ksjkncks7dabjca7";
 const wss = new WebSocketServer({ port: PORT });
 const roomSecrets = new Map();
 roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123");
@@ -50,7 +50,6 @@ wss.on("connection", (ws) => {
         }
 
         if (type === "msg") {
-            console.log("--- MENSAJE INTERCEPTADO ---");
             console.log("RoomKey:", roomKey);
             console.log("De:", from);
             console.log("Para:", to);
