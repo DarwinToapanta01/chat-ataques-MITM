@@ -18,7 +18,7 @@ if (!secretToken) {
 }
 
 // Reemplaza por la IP real de tu PC servidor
-const ws = new WebSocket("ws://192.168.3.6:8090");
+const ws = new WebSocket("ws://10.41.1.171:8090");
 
 ws.on("open", () => {
     ws.send(JSON.stringify({ type: "join", from: me, roomKey, secretToken }));

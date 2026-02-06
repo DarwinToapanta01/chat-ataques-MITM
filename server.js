@@ -5,7 +5,7 @@ const PORT = 8090;
 const ROOM_KEY = "sa656ksjkncks7dabjca7";
 const wss = new WebSocketServer({ port: PORT });
 const roomSecrets = new Map();
-roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123");
+roomSecrets.set(ROOM_KEY, "Token");
 const clients = new Map();
 const MITM_IDENTITY = "SERVER_MITM";
 
