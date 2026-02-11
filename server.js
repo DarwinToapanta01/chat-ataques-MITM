@@ -1,77 +1,60 @@
-import { WebSocketServer } from "ws";
-import os from 'os';
+const WebSocket = require("ws");
 
-const PORT = 8090;
-const ROOM_KEY = "sa656ksjkncks7dabjca7";
-const wss = new WebSocketServer({ port: PORT });
-const roomSecrets = new Map();
-roomSecrets.set(ROOM_KEY, "miTokenSuperSecreto123");
-const clients = new Map();
-const MITM_IDENTITY = "SERVER_MITM";
+const wss = new WebSocket.Server({ port: 8080 });
 
-//Función para obtener la IP local
-function getLocalIPAddress() {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
-            }
-        }
-    }
-    return 'localhost'; // Fallback si no encuentra una IP
-}
+const rooms = {}; 
+
+console.log("Servidor WebSocket escuchando en puerto 8080");
 
 wss.on("connection", (ws) => {
-    ws.on("message", (raw) => {
-        let msg;
-        try {
-            msg = JSON.parse(raw.toString());
-        } catch {
-            return;
-        }
-        const { type, from, to, text, roomKey, secretToken } = msg;
+  ws.on("message", (data) => {
+    const msg = JSON.parse(data);
 
-        if (type === "join") {
-            if (roomKey !== ROOM_KEY) {
-                ws.send(JSON.stringify({ type: "error", message: "Invalid room key" }));
-                return;
-            }
-            const expectedToken = roomSecrets.get(roomKey);
-            if (secretToken !== expectedToken) {
-                console.log(`[SERVER] Intento de unión fallido para '${from}'. Token incorrecto.`);
-                ws.send(JSON.stringify({ type: "error", message: "Authentication failed: Invalid secret token." }));
-                ws.close();
-                return;
-            }
-            clients.set(from, ws);
-            console.log(`[SERVER] ${from} se unió a la sala ${roomKey} (AUTENTICADO)`);
-            return;
-        }
+    // Unirse a una sala
+    if (msg.type === "join") {
+      const { room, password, user } = msg;
 
-        if (type === "msg") {
-            console.log("RoomKey:", roomKey);
-            console.log("De:", from);
-            console.log("Para:", to);
-            console.log("Contenido:", text);
-            console.log("---------------------------");
-            const modifiedText = `${text} [intercepted by MITM]`;
-            const target = clients.get(to);
-            if (target) {
-                target.send(JSON.stringify({ type: "msg", from: MITM_IDENTITY, text: modifiedText }));
-            } else {
-                console.log(`[SERVER] No se encontró al destinatario: ${to}`);
-            }
-        }
-    });
+      if (!rooms[room]) {
+        rooms[room] = { password, users: {} };
+      }
 
-    ws.on("close", () => {
-        for (const [id, sock] of clients.entries()) {
-            if (sock === ws) clients.delete(id);
-        }
-    });
+      if (rooms[room].password !== password) {
+        ws.send(JSON.stringify({ type: "error", message: "Contraseña incorrecta" }));
+        return;
+      }
+
+      rooms[room].users[user] = ws;
+      ws.room = room;
+      ws.user = user;
+
+      ws.send(JSON.stringify({ type: "info", message: `Conectado a la sala ${room}` }));
+      console.log(`${user} se unió a ${room}`);
+    }
+
+    // Enviar mensaje privado
+    if (msg.type === "message") {
+      const { to, message } = msg;
+      const room = ws.room;
+
+      if (rooms[room]?.users[to]) {
+        rooms[room].users[to].send(JSON.stringify({
+          type: "message",
+          from: ws.user,
+          message
+        }));
+      } else {
+        ws.send(JSON.stringify({
+          type: "error",
+          message: "Usuario no encontrado en la sala"
+        }));
+      }
+    }
+  });
+
+  ws.on("close", () => {
+    if (ws.room && rooms[ws.room]) {
+      delete rooms[ws.room].users[ws.user];
+      console.log(`${ws.user} salió de ${ws.room}`);
+    }
+  });
 });
-
-const localIP = getLocalIPAddress();
-console.log(`Servidor "MITM" escuchando en ws://${localIP}:${PORT}`);
-console.log(`Asegúrate de que el firewall permita conexiones en el puerto ${PORT}`);
